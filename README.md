@@ -7,18 +7,39 @@
 # SYNOPSIS
 
 ```perl6
+    use lib <lib>;
     use Reminders;
 
+    my $rem = Reminders.new;
+    $rem.add: '12 seconds passed', :12in;
+    $rem.add: '15 seconds passed', :when(now+15), :who<Zoffix>, :where<#perl6>;
 
+    react whenever $rem {
+        say "Reminder: $^reminder";
+        once $rem.add: 'One more thing, bruh', :10in;
+        done unless $rem.waiting;
+    }
 ```
 
 # DESCRIPTION
 
+You ask the class to remind you with stuff, tagged with an optional name and
+location. When the time comes, the class will emit the reminder to a `Supply`.
+The reminders are stored in an SQLite database, so even if you close the
+program, you will still get your reminders the next time you fire it up.
 
+# METHODS
+
+## `new`
 
 # TESTING
 
 To run the full test suite, set `EXTENDED_TESTING` environmental variable to `1`
+
+# LIMITATIONS
+
+Currently, trying to use the same database file from multiple programs or multiple
+`Reminders` instances might have issues due to race conditions.
 
 ---
 

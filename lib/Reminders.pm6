@@ -4,6 +4,7 @@ use DBIish;
 
 has $!db;
 has $!supplier = Supplier::Preserving.new;
+has $.waiting = 0;
 
 class Rem {
     trusts Reminders;
@@ -16,11 +17,16 @@ class Rem {
     has Reminders  $!rem;
     method !rem($!rem) { self }
     method mark-seen { $!seen = True; $!rem.mark-seen: self }
+    method Str {
+        my $who-str = $!who ~ ("@" if $!who or $!where) ~ $!where;
+        "{"$who-str " if $who-str}$!what"
+    }
+    method gist { self.Str }
 }
 
 submethod TWEAK (IO() :$db-file = 'reminders.sqlite.db') {
     my $deploy = $db-file.e.not;
-    $!db = DBIish.connect: 'SQLite', :database($db-file), :RaiseError;
+    $!db = DBIish.connect: 'SQLite', :database($db-file.absolute), :RaiseError;
     $deploy and $!db.do: ｢
         CREATE TABLE reminders (
             "id"        INTEGER PRIMARY KEY,
@@ -32,22 +38,49 @@ submethod TWEAK (IO() :$db-file = 'reminders.sqlite.db') {
             "seen"      INTEGER UNSIGNED NOT NULL DEFAULT 0
         )
     ｣;
-    self.all
+    for self.all -> $rem {
+        if $rem.when - now < 6 { $!supplier.emit: $rem.mark-seen }
+        else {
+            $!waiting++;
+            Promise.at($rem.when).then: {
+                $!waiting--;
+                $!supplier.emit: $rem.mark-seen
+            }
+        }
+    }
 }
 
-method add (
+multi method add (Int:D :$in, |c) { self.add: |c, :when(now + $in) }
+multi method add (
             Str:D  \what,
-            Str:D  :$who   = 'N/A',
-            Str:D  :$where = 'N/A',
+            Str:D  :$who   = '',
+            Str:D  :$where = '',
     Instant(Any:D) :$when! where DateTime|Instant
 ) {
     $!db.do: ｢
         INSERT INTO reminders ("who", "what", "where", "when", "created")
             VALUES (?, ?, ?, ?, ?)
     ｣, $who, what, $where, $when.to-posix.head, time;
-    for self.all -> $rem {
-        if now - .when < 10            { $!supplier.emit: $rem.mark-seen }
-        else { Promise.at(.when).then: { $!supplier.emit: $rem.mark-seen } }
+
+    my $rem = do with $!db.prepare:
+        ｢SELECT * FROM reminders WHERE id = last_insert_rowid()｣
+    {
+        LEAVE .finish; .execute;
+        with .fetchrow-hash {
+            Rem.new(
+                :id(.<id>.Int), :who(.<who>), :what(.<what>), :where(.<where>),
+                :when(Instant.from-posix: .<when>),
+                :created(Instant.from-posix: .<created>),
+            )!Rem::rem(self)
+        }
+    };
+    if $rem.when - now < 6 { $!supplier.emit: $rem.mark-seen }
+    else {
+        $!waiting++;
+        Promise.at($rem.when).then: {
+            $!waiting--;
+            $!supplier.emit: $rem.mark-seen
+        }
     }
 }
 
@@ -55,17 +88,19 @@ method all (:$all) {
     with $!db.prepare: ｢SELECT * FROM reminders ｣
       ~ (｢WHERE seen == 0｣ unless $all) ~ ｢ ORDER BY "created" DESC｣
     {
-        .execute;
+        LEAVE .finish; .execute;
         # https://github.com/perl6/DBIish/issues/93
         eager .allrows(:array-of-hash).map: {
             Rem.new(
-                :id(.<id>), :who(.<who>), :what(.<what>), :where(.<where>),
+                :id(.<id>.Int), :who(.<who>), :what(.<what>), :where(.<where>),
                 :when(Instant.from-posix: .<when>),
                 :created(Instant.from-posix: .<created>),
             )!Rem::rem(self)
         };
     }
 }
+
+method close { $!supplier.done }
 
 method mark-seen (Rem $rem) {
     $!db.do: ｢UPDATE reminders SET seen = 1 WHERE id = ?｣, $rem.id;
