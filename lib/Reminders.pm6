@@ -4,7 +4,8 @@ use DBIish;
 
 has $!db;
 has $!supplier = Supplier::Preserving.new;
-has $.waiting = 0;
+has $!waiting = 0;
+has $!done = False;
 
 class Rem {
     trusts Reminders;
@@ -43,8 +44,8 @@ submethod TWEAK (IO() :$db-file = 'reminders.sqlite.db') {
         else {
             $!waiting++;
             Promise.at($rem.when).then: {
-                $!waiting--;
-                $!supplier.emit: $rem.mark-seen
+                $!supplier.emit: $rem.mark-seen;
+                $!supplier.done if $!done and not --$!waiting;
             }
         }
     }
@@ -57,6 +58,7 @@ multi method add (
             Str:D  :$where = '',
     Instant(Any:D) :$when! where DateTime|Instant
 ) {
+    $!done and die 'Cannot add more reminders to Reminders object that was .done';
     $!db.do: ｢
         INSERT INTO reminders ("who", "what", "where", "when", "created")
             VALUES (?, ?, ?, ?, ?)
@@ -78,8 +80,8 @@ multi method add (
     else {
         $!waiting++;
         Promise.at($rem.when).then: {
-            $!waiting--;
-            $!supplier.emit: $rem.mark-seen
+            $!supplier.emit: $rem.mark-seen;
+            $!supplier.done if $!done and not --$!waiting;
         }
     }
 }
@@ -100,7 +102,7 @@ method all (:$all) {
     }
 }
 
-method close { $!supplier.done }
+method done { $!waiting ?? ($!done = True) !! $!supplier.done }
 
 method mark-seen (Rem $rem) {
     $!db.do: ｢UPDATE reminders SET seen = 1 WHERE id = ?｣, $rem.id;
