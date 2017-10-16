@@ -1,0 +1,22 @@
+{
+    "perl"         : "6.c",
+    "name"         : "Reminders",
+    "version"      : "1.001001",
+    "description"  : "Class for managing reminders about task and events",
+    "depends"      : [
+        "OO::Monitors",
+        "DBIish"
+    ],
+    "test-depends" : [
+        "Test",
+        "Test::When",
+        "Temp::Path"
+    ],
+    "provides"     : {
+        "Reminders" : "lib/Reminders.pm6"
+    },
+    "authors"       : ["Zoffix Znet"],
+    "support"       : {
+        "source": "https://github.com/zoffixznet/perl6-Reminders.git"
+    }
+}
