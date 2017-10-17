@@ -17,7 +17,16 @@ class Rem {
     has     Bool:D $.seen  = False;
     has Reminders  $!rem;
     method !rem($!rem) { self }
-    method mark-seen { $!seen = True; $!rem.mark-seen: self }
+    method !alter-when($!when) { self }
+    method !from-hash($_) {
+        self.bless:
+            :id(.<id>.Int), :who(.<who>), :what(.<what>), :where(.<where>),
+            :when(Instant.from-posix: .<when>), :seen(?+.<seen>),
+            :created(Instant.from-posix: .<created>)
+    }
+    method new (|) { die "Cannot instantiate {self.^name} directly" }
+    method mark-seen   { $!seen = True;  $!rem.mark-seen:   self }
+    method mark-unseen { $!seen = False; $!rem.mark-unseen: self }
     method Str {
         my $who-str = $!who ~ ("@" if $!who or $!where) ~ $!where;
         "{"$who-str " if $who-str}$!what"
@@ -39,24 +48,35 @@ submethod TWEAK (IO() :$db-file = 'reminders.sqlite.db') {
             "seen"      INTEGER UNSIGNED NOT NULL DEFAULT 0
         )
     ｣;
-    for self.all -> $rem {
-        if $rem.when - now < 6 { $!supplier.emit: $rem.mark-seen }
-        else {
-            $!waiting++;
-            Promise.at($rem.when).then: {
-                $!supplier.emit: $rem.mark-seen;
-                $!supplier.done if $!done and not --$!waiting;
-            }
-        }
+    self!schedule: $_ for self.all;
+}
+
+method !schedule(Rem $rem --> Nil) {
+    return if $rem.seen;
+    if $rem.when - now < 4 { $!supplier.emit: $rem.mark-seen }
+    else {
+        $!waiting++;
+        Promise.at($rem.when).then: { self!emit: $rem }
     }
 }
 
-multi method add (Int:D :$in, |c) { self.add: |c, :when(now + $in) }
+method !emit(Rem \rem --> Nil) {
+    with self.rem: rem.id { # check we still have this reminder in DB
+        return if .seen;
+        $!supplier.emit: .mark-seen;
+        $!supplier.done if $!done and not --$!waiting;
+    }
+}
+
+multi method add (UInt:D :$in!, |c --> Reminders:D) {
+    self.add: |c, :when(now + $in)
+}
 multi method add (
             Str:D  \what,
             Str:D  :$who   = '',
             Str:D  :$where = '',
     Instant(Any:D) :$when! where DateTime|Instant
+    --> Reminders:D
 ) {
     $!done and die 'Cannot add more reminders to Reminders object that was .done';
     $!db.do: ｢
@@ -68,45 +88,73 @@ multi method add (
         ｢SELECT * FROM reminders WHERE id = last_insert_rowid()｣
     {
         LEAVE .finish; .execute;
-        with .fetchrow-hash {
-            Rem.new(
-                :id(.<id>.Int), :who(.<who>), :what(.<what>), :where(.<where>),
-                :when(Instant.from-posix: .<when>),
-                :created(Instant.from-posix: .<created>),
-            )!Rem::rem(self)
-        }
+        my $res := .fetchrow-hash;
+        Rem!Rem::from-hash($res)!Rem::rem(self) if $res;
     };
-    if $rem.when - now < 6 { $!supplier.emit: $rem.mark-seen }
-    else {
-        $!waiting++;
-        Promise.at($rem.when).then: {
-            $!supplier.emit: $rem.mark-seen;
-            $!supplier.done if $!done and not --$!waiting;
-        }
-    }
+    self!schedule: $rem with $rem;
+    self;
 }
 
-method all (:$all) {
+method all (:$all --> List:D) {
     with $!db.prepare: ｢SELECT * FROM reminders ｣
-      ~ (｢WHERE seen == 0｣ unless $all) ~ ｢ ORDER BY "created" DESC｣
+      ~ (｢WHERE seen == 0｣ unless $all) ~ ｢ ORDER BY "created" DESC, "id" DESC｣
     {
         LEAVE .finish; .execute;
         # https://github.com/perl6/DBIish/issues/93
         eager .allrows(:array-of-hash).map: {
-            Rem.new(
-                :id(.<id>.Int), :who(.<who>), :what(.<what>), :where(.<where>),
-                :when(Instant.from-posix: .<when>),
-                :created(Instant.from-posix: .<created>),
-            )!Rem::rem(self)
+            Rem!Rem::from-hash($_)!Rem::rem(self)
         };
     }
 }
 
-method done { $!waiting ?? ($!done = True) !! $!supplier.done }
+method done (--> Nil) { $!waiting ?? ($!done = True) !! $!supplier.done }
 
-method mark-seen (Rem $rem) {
-    $!db.do: ｢UPDATE reminders SET seen = 1 WHERE id = ?｣, $rem.id;
-    $rem;
+multi method mark-seen (UInt:D \id --> Nil) {
+    self.mark-seen: $_ with self.rem: id;
+}
+multi method mark-seen (Rem:D $rem --> Nil) {
+    $!db.do: ｢UPDATE reminders SET seen = 1 WHERE id = ?｣, $rem.id
+}
+multi method mark-unseen (UInt:D \id, :$re-schedule --> Nil) {
+    self.mark-unseen: $_, :$re-schedule with self.rem: id;
+}
+multi method mark-unseen (Rem:D $rem, :$re-schedule --> Nil) {
+    $!db.do: ｢UPDATE reminders SET seen = 0 WHERE id = ?｣, $rem.id;
+    self!schedule: self.rem: $rem.id if $re-schedule;
 }
 
-method Supply { $!supplier.Supply }
+method rem (UInt:D \id --> Rem:D) {
+    with $!db.prepare: ｢SELECT * FROM reminders WHERE id = ?｣ {
+        LEAVE .finish; .execute: id;
+        my $res := .fetchrow-hash;
+        return Rem!Rem::from-hash($res)!Rem::rem(self) if $res;
+    }
+    Nil
+}
+
+multi method remove (UInt:D \id --> Nil) {
+    self.remove: $_ with self.rem: id;
+}
+multi method remove (Rem:D \rem --> Nil) {
+    $!db.do: ｢DELETE FROM reminders WHERE id = ?｣, rem.id;
+    rem
+}
+
+multi method snooze (UInt:D \id, |c --> Rem:D) {
+    self.snooze: $_, |c with self.rem: id;
+}
+multi method snooze (UInt:D :$in!, |c --> Rem:D) {
+    self.snooze: |c, :when(now + $in)
+}
+multi method snooze (
+    Rem:D \rem, Instant(Any:D) :$when! where DateTime|Instant --> Rem:D
+) {
+    rem!Rem::alter-when: $when;
+    rem.mark-unseen;
+    $!db.do: ｢UPDATE reminders SET when = ? WHERE id = ?｣,
+        rem.when.to-posix.head, rem.id;
+    self!schedule: rem;
+    rem
+}
+
+method Supply (--> Supply:D) { $!supplier.Supply }

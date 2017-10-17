@@ -1,6 +1,6 @@
 use lib <lib>;
-use Testo;
 use Test::When <extended>;
+use Test;
 use Temp::Path;
 plan 1;
 use Reminders;
@@ -13,8 +13,11 @@ $rem.add: 'three', :when(now+6), :who<Zoffix>, :where<#perl6>;
 my @reminders;
 react whenever $rem {
     @reminders.push: "Reminder: $^reminder";
-    # once $rem.add: 'four', :6in;
-    # done unless $rem.waiting;
+    once {
+        $rem.add: 'four', :6in;
+        $rem.done;
+    }
 }
 
-is @reminders, (), 'all reminders are correct';
+is-deeply @reminders,  [«"Reminder: one"  "Reminder: two"
+    "Reminder: Zoffix@#perl6 three" "Reminder: four"»], 'all reminders are correct';
