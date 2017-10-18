@@ -9,7 +9,6 @@
     ],
     "test-depends" : [
         "Test",
-        "Test::When",
         "Temp::Path"
     ],
     "provides"     : {

@@ -1,8 +1,7 @@
 use lib <lib>;
-use Test::When <extended>;
 use Test;
 use Temp::Path;
-plan 9;
+plan 10;
 
 use Reminders;
 my Reminders $rem .= new: :db-file(make-temp-path);
@@ -59,4 +58,19 @@ subtest '.mark-unseen rescheduling' => {
             pass 'seen rescheduled reminder';
         }
     }
+}
+
+subtest '.removed scheduled reminders get removed from schedule' => {
+    plan 2;
+
+    my Reminders $rem .= new: :db-file(make-temp-path);
+    $rem.add: 'pick up milk',      :2in;
+    $rem.add: 'get starship fuel', :10in;
+
+    react whenever $rem {
+        pass 'received first reminder... removing rest';
+        $rem.remove: 2;
+        $rem.done;
+    }
+    pass 'got out of whenever';
 }

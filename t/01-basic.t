@@ -1,5 +1,4 @@
 use lib <lib>;
-use Test::When <extended>;
 use Test;
 use Temp::Path;
 plan 1;

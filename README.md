@@ -25,6 +25,27 @@
     # Reminder: One more thing, bruh
 ```
 
+```perl6
+    use Reminders;
+
+    my Reminders $rem .= new;
+    $rem.add: 'one', :who<Zoffix>, :where<space>, :1in;
+    $rem.add: 'two', :who<Meows>,  :where<perl6>, :2in;
+
+    react whenever $rem -> $r {
+        say "Reminder: $r.what() [$r.who() / $r.where()]";
+        once {
+            $rem.snooze: $r, :3in;
+            $rem.done;
+        }
+    }
+
+    # OUTPUT (exits after printing last line):
+    # Reminder: one [Zoffix / space]
+    # Reminder: two [Meows / perl6]
+    # Reminder: one [Zoffix / space]
+```
+
 # DESCRIPTION
 
 You ask the class to remind you with stuff, tagged with an optional name and
@@ -34,9 +55,9 @@ program, you will still get your reminders the next time you fire it up.
 
 # METHODS
 
-## class `Reminders`
+## monitor `Reminders`
 
-### `new`
+### method `.new`
 
 ```perl6
     submethod TWEAK(IO() :$db-file = 'reminders.sqlite.db')
@@ -54,7 +75,7 @@ will be emited.
     my Reminders $rem-custom .= new: :db-file<my-special-reminders.db>;
 ```
 
-### `add`
+### method `.add`
 
 ```perl6
     multi method add (UInt:D :$in!, |c --> Reminders:D)
@@ -87,7 +108,7 @@ emitted object).
               :who<Zoffix>, :where<#perl6>;
 ```
 
-### `all`
+### method `.all`
 
 ```perl6
     method all (:$all --> List:D)
@@ -111,7 +132,7 @@ including those marked as seen.
     # get starship fuel
 ```
 
-### `done`
+### method `.done`
 
 ```perl6
     method done (--> Nil)
@@ -138,7 +159,7 @@ method have been called.
     # Reminder: two
 ```
 
-### `mark-seen`
+### method `.mark-seen`
 
 ```perl6
     multi method mark-seen (UInt:D \id --> Nil)
@@ -155,7 +176,7 @@ emitted into the `.Supply` are marked as "seen" automatically when emitted.
 Marking an emitted reminder as "seen" will prevent it from being emitted, even
 if it was already scheduled.
 
-### `mark-unseen`
+### method `.mark-unseen`
 
 ```perl6
     multi method mark-unseen (UInt:D \id, :$re-schedule --> Nil)
@@ -172,7 +193,7 @@ cause it to be immediately emitted and again marked as "seen".
         for $rem.all.grep: *.what.contains: 'stuff I forgot to do';
 ```
 
-### `rem`
+### method `.rem`
 
 ```perl6
     method rem (UInt:D \id --> Reminders::Rem:D)
@@ -185,40 +206,111 @@ if a reminder with such an id was not found.
     say "You're meant to do: " ~ $rem.rem(2).what;
 ```
 
-### `remove`
+### method `.remove`
 
 ```perl6
     multi method remove (UInt:D \id --> Nil)
     multi method remove (Reminders::Rem:D \rem --> Nil)
 ```
 
-Takes a reminder object or its ID and deletes it from the database
+Takes a reminder object or its ID and deletes it from the database and prevents
+it from being emitted if it was already scheduled (note that the internal
+scheduling `Promise` will still exist until it fires, it just won't emit the
+reminder when it does).
 
 ```perl6
     $rem.remove: $_ for $rem.all.grep: *.what.contains: 'things I done';
 ```
 
-### `remove`
+### method `.snooze`
 
 ```perl6
+multi method snooze (UInt:D \id, |c --> Reminders::Rem:D)
+multi method snooze (UInt:D :$in!, |c --> Reminders::Rem:D)
+multi method snooze (
+    Reminders::Rem:D \rem, Instant(Any:D) :$when! where DateTime|Instant
+    --> Reminders::Rem:D
+)
 ```
+
+Takes a reminder object or its ID, marks it unseen and adjusts `.when` to a
+new value given via `:$in` or `:$when` named arguments (same semantics as
+in `.add` method). Returns the updated reminder object. It's not permitted
+to `.snooze` after `Reminders` was `.done`
 
 
 ```perl6
+    my Reminders $rem .= new;
+    $rem.add: 'one', :who<Zoffix>, :where<space>, :1in;
+    $rem.add: 'two', :who<Meows>,  :where<perl6>, :2in;
+
+    react whenever $rem -> $r {
+        say "Reminder: $r.what() [$r.who() / $r.where()]";
+        once {
+            $rem.snooze: $r, :3in;
+            $rem.done;
+        }
+    }
+
+    # OUTPUT (exits after printing last line):
+    # Reminder: one [Zoffix / space]
+    # Reminder: two [Meows / perl6]
+    # Reminder: one [Zoffix / space]
 ```
 
-### `remove`
+### method `.Supply`
 
 ```perl6
+    method Supply (--> Supply:D)
 ```
 
+Returns a [`Supply`](https://docs.perl6.org/type/Supply) of emitted reminder
+objects that are emited at their `:$when`/`:$in` times. The `Supply` is
+managed by
+[`Supplier::Preserving`](https://docs.perl6.org/type/Supplier::Preserving)
 
-```perl6
-```
+## monitor `Reminders::Rem`
 
-# TESTING
+A reminder object emitted into `Reminders.Supply` that represents a reminder.
 
-To run the full test suite, set `EXTENDED_TESTING` environmental variable to `1`
+### method `.new`
+
+This object cannot be instantiated directly.
+
+### method `.id`
+
+Returns a `UInt` with reminder object's ID. This is the ID accepted by
+several `Reminders`'s methods.
+
+### method `.what`
+
+Returns a `Str:D` containing the message of the reminder. This is the `what`
+given to `Reminders.add` method.
+
+### method `.who`
+
+Returns a `Str:D` containing the value of `:$who` that was
+given to `Reminders.add` method.
+
+### method `.where`
+
+Returns a `Str:D` containing the value of `:$where` that was
+given to `Reminders.add` method.
+
+### method `.when`
+
+Returns an `Instant:D` containing the value of when the reminder was scheduled
+for. This value is interpreted from `:$in` or `:$when` value given to
+`Reminders.add` method.
+
+### method `.Str`
+
+Returns a `Str:D` composed of the reminder's `.what` value, preceeded by
+string `$who@$what` if either `.who` or `.what` value is non-empty.
+
+### method `.gist`
+
+Calls `.Str` and returns its value.
 
 # MULTI-THREADING
 
@@ -229,6 +321,7 @@ However, currently, trying to use the **same database file** from multiple progr
 or multiple `Reminders` instances might have issues due to race conditions or
 crashes if SQLite or [`DBIish`](https://modules.perl6.org/dist/DBIish)
 are not thread safe (no idea if they are).
+
 ---
 
 #### REPOSITORY

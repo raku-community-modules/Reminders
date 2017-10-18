@@ -4,34 +4,34 @@ use DBIish;
 
 has $!db;
 has $!supplier = Supplier::Preserving.new;
-has $!waiting = 0;
+has %!waiting;
 has $!done = False;
 
-class Rem {
+monitor Rem {
     trusts Reminders;
-    has      Int:D $.id    is required;
-    has      Str:D $.what  is required;
-    has      Str:D $.who   is required;
-    has      Str:D $.where is required;
-    has  Instant:D $.when  is required;
-    has     Bool:D $.seen  = False;
-    has Reminders  $!rem;
+    has      UInt:D $.id    is required;
+    has      Str:D  $.what  is required;
+    has      Str:D  $.who   is required;
+    has      Str:D  $.where is required;
+    has  Instant:D  $.when  is required;
+    has     Bool:D  $.seen  = False;
+    has Reminders   $!rem;
+
     method !rem($!rem) { self }
-    method !alter-when($!when) { self }
     method !from-hash($_) {
         self.bless:
             :id(.<id>.Int), :who(.<who>), :what(.<what>), :where(.<where>),
             :when(Instant.from-posix: .<when>), :seen(?+.<seen>),
             :created(Instant.from-posix: .<created>)
     }
+    method !mark-seen   { $!seen = True;  $!rem.mark-seen: self; self }
+
     method new (|) { die "Cannot instantiate {self.^name} directly" }
-    method mark-seen   { $!seen = True;  $!rem.mark-seen:   self }
-    method mark-unseen { $!seen = False; $!rem.mark-unseen: self }
-    method Str {
+    method Str (--> Str:D) {
         my $who-str = $!who ~ ("@" if $!who or $!where) ~ $!where;
         "{"$who-str " if $who-str}$!what"
     }
-    method gist { self.Str }
+    method gist (--> Str:D) { self.Str }
 }
 
 submethod TWEAK (IO() :$db-file = 'reminders.sqlite.db') {
@@ -51,21 +51,22 @@ submethod TWEAK (IO() :$db-file = 'reminders.sqlite.db') {
     self!schedule: $_ for self.all;
 }
 
-method !schedule(Rem $rem --> Nil) {
-    return if $rem.seen;
-    if $rem.when - now < 4 { $!supplier.emit: $rem.mark-seen }
+method !schedule(Rem \rem --> Nil) {
+    return if rem.seen;
+    if rem.when - now < 4 { $!supplier.emit: rem!Rem::mark-seen }
     else {
-        $!waiting++;
-        Promise.at($rem.when).then: { self!emit: $rem }
+        %!waiting{rem.id} = True;
+        Promise.at(rem.when).then: { self!emit: rem }
     }
 }
 
+# keep logic in the method, to guarantee 1-thread use, since it's a monitor class
 method !emit(Rem \rem --> Nil) {
     with self.rem: rem.id { # check we still have this reminder in DB
-        return if .seen;
-        $!supplier.emit: .mark-seen;
-        $!supplier.done if $!done and not --$!waiting;
+        $!supplier.emit: $_!Rem::mark-seen unless .seen;
     }
+    %!waiting{rem.id}:delete;
+    $!supplier.done if not %!waiting and $!done;
 }
 
 multi method add (UInt:D :$in!, |c --> Reminders:D) {
@@ -107,7 +108,10 @@ method all (:$all --> List:D) {
     }
 }
 
-method done (--> Nil) { $!waiting ?? ($!done = True) !! $!supplier.done }
+method done (--> Nil) {
+    $!done = True;
+    $!supplier.done unless %!waiting;
+}
 
 multi method mark-seen (UInt:D \id --> Nil) {
     self.mark-seen: $_ with self.rem: id;
@@ -137,7 +141,7 @@ multi method remove (UInt:D \id --> Nil) {
 }
 multi method remove (Rem:D \rem --> Nil) {
     $!db.do: ｢DELETE FROM reminders WHERE id = ?｣, rem.id;
-    rem
+    %!waiting{rem.id}:delete;
 }
 
 multi method snooze (UInt:D \id, |c --> Rem:D) {
@@ -149,12 +153,14 @@ multi method snooze (UInt:D :$in!, |c --> Rem:D) {
 multi method snooze (
     Rem:D \rem, Instant(Any:D) :$when! where DateTime|Instant --> Rem:D
 ) {
-    rem!Rem::alter-when: $when;
-    rem.mark-unseen;
-    $!db.do: ｢UPDATE reminders SET when = ? WHERE id = ?｣,
-        rem.when.to-posix.head, rem.id;
-    self!schedule: rem;
-    rem
+    $!done and die 'Cannot snooze because Reminders object was .done already';
+    $!db.do: ｢UPDATE reminders SET seen = 0, "when" = ? WHERE id = ?｣,
+        $when.to-posix.head, rem.id;
+    %!waiting{rem.id}:delete;
+    with self.rem: rem.id {
+        self!schedule: $_;
+        $_
+    }
 }
 
 method Supply (--> Supply:D) { $!supplier.Supply }
