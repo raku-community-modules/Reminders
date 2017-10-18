@@ -9,7 +9,7 @@
 ```perl6
     use Reminders;
 
-    my Reminders $rem .= new;
+    my Reminders $rem .= new; # use default 'reminders.sqlite.db' db file
     say "Setting up some reminders up to 20 seconds in the future";
     $rem.add: '5 seconds passed',  :5in;
     $rem.add: '15 seconds passed', :when(now+15), :who<Zoffix>, :where<#perl6>;
