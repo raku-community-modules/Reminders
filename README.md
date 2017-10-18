@@ -46,6 +46,37 @@
     # Reminder: one [Zoffix / space]
 ```
 
+# TABLE OF CONTENTS
+- [NAME](#name)
+- [SYNOPSIS](#synopsis)
+- [DESCRIPTION](#description)
+- [METHODS](#methods)
+    - [monitor `Reminders`](#monitor-reminders)
+        - [method `.new`](#method-new)
+        - [method `.add`](#method-add)
+        - [method `.all`](#method-all)
+        - [method `.done`](#method-done)
+        - [method `.mark-seen`](#method-mark-seen)
+        - [method `.mark-unseen`](#method-mark-unseen)
+        - [method `.rem`](#method-rem)
+        - [method `.remove`](#method-remove)
+        - [method `.snooze`](#method-snooze)
+        - [method `.Supply`](#method-supply)
+    - [monitor `Reminders::Rem`](#monitor-remindersrem)
+        - [method `.new`](#method-new-1)
+        - [method `.id`](#method-id)
+        - [method `.what`](#method-what)
+        - [method `.who`](#method-who)
+        - [method `.where`](#method-where)
+        - [method `.when`](#method-when)
+        - [method `.Str`](#method-str)
+        - [method `.gist`](#method-gist)
+- [MULTI-THREADING](#multi-threading)
+    - [REPOSITORY](#repository)
+    - [BUGS](#bugs)
+    - [AUTHOR](#author)
+    - [LICENSE](#license)
+
 # DESCRIPTION
 
 You ask the class to remind you with stuff, tagged with an optional name and
