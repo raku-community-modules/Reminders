@@ -2,7 +2,7 @@
 
 # NAME
 
-`Reminders` - Class for managing reminders about task and events
+`Reminders` - Class for managing reminders about tasks and events
 
 # SYNOPSIS
 

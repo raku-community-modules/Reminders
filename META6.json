@@ -1,8 +1,8 @@
 {
     "perl"         : "6.c",
     "name"         : "Reminders",
-    "version"      : "1.001003",
-    "description"  : "Class for managing reminders about task and events",
+    "version"      : "1.001004",
+    "description"  : "Class for managing reminders about tasks and events",
     "depends"      : [
         "OO::Monitors",
         "DBIish"
