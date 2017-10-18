@@ -72,10 +72,10 @@
         - [method `.Str`](#method-str)
         - [method `.gist`](#method-gist)
 - [MULTI-THREADING](#multi-threading)
-    - [REPOSITORY](#repository)
-    - [BUGS](#bugs)
-    - [AUTHOR](#author)
-    - [LICENSE](#license)
+- [REPOSITORY](#repository)
+- [BUGS](#bugs)
+- [AUTHOR](#author)
+- [LICENSE](#license)
 
 # DESCRIPTION
 
