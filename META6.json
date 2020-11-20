@@ -16,6 +16,6 @@
     },
     "authors"       : ["Zoffix Znet"],
     "support"       : {
-        "source": "https://github.com/zoffixznet/perl6-Reminders.git"
+        "source": "https://github.com/raku-community-modules/Reminders.git"
     }
 }
