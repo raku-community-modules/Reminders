@@ -6,7 +6,7 @@
 
 # SYNOPSIS
 
-```perl6
+```raku
     use Reminders;
 
     my Reminders $rem .= new; # use default 'reminders.sqlite.db' db file
@@ -25,7 +25,7 @@
     # Reminder: One more thing, bruh
 ```
 
-```perl6
+```raku
     use Reminders;
 
     my Reminders $rem .= new;
@@ -90,7 +90,7 @@ program, you will still get your reminders the next time you fire it up.
 
 ### method `.new`
 
-```perl6
+```raku
     submethod TWEAK(IO() :$db-file = 'reminders.sqlite.db')
 ```
 
@@ -101,14 +101,14 @@ created and SQL schema deployed if the file does not exist.
 If the database has any unseen reminders with their due times reached, they
 will be emited.
 
-```perl6
+```raku
     my Reminders $rem .= new;
     my Reminders $rem-custom .= new: :db-file<my-special-reminders.db>;
 ```
 
 ### method `.add`
 
-```perl6
+```raku
     multi method add (UInt:D :$in!, |c --> Reminders:D)
     multi method add (
                 Str:D  \what,
@@ -132,7 +132,7 @@ Optional `:$who` and `:$where` arguments can be provided for arbitrary
 classification of the reminder (these will be available via methods of the
 emitted object).
 
-```perl6
+```raku
     $rem.add: 'one', :5in;       # may  be emitted immediately
     $rem.add: 'two', :in(-1000); # will be emitted immediately
     $rem.add: 'three', :when(DateTime.now.later: :year), # will be scheduled
@@ -141,7 +141,7 @@ emitted object).
 
 ### method `.all`
 
-```perl6
+```raku
     method all (:$all --> List:D)
 ```
 
@@ -150,7 +150,7 @@ currently-unseen reminders, ordered by creation time, in descending order.
 If `:$all` is set to a truthy value, returns all reminders in the database,
 including those marked as seen.
 
-```perl6
+```raku
     .say for flat "You have these unseen reminders: ", $rem.all;
     # OUTPUT:
     # You have these unseen reminders:
@@ -165,20 +165,20 @@ including those marked as seen.
 
 ### method `.done`
 
-```perl6
+```raku
     method done (--> Nil)
 ```
 
-Calls [`done`](https://docs.perl6.org/type/Supplier#method_done) on the
-[`Supplier`](https://docs.perl6.org/type/Supplier) responsible for the
-[`Supply`](https://docs.perl6.org/type/Supply) of reminder objects, one all
+Calls [`done`](https://docs.raku.org/type/Supplier#method_done) on the
+[`Supplier`](https://docs.raku.org/type/Supplier) responsible for the
+[`Supply`](https://docs.raku.org/type/Supply) of reminder objects, one all
 of them have been emitted.
 
 Calling this method is optional and is just a convenience to break out of,
 say, `react` loops. It's not permitted to `.add` more reminders once this
 method have been called.
 
-```perl6
+```raku
     my Reminders $rem .= new;
     $rem.add: 'one', :3in;
     $rem.add: 'two', :5in;
@@ -192,7 +192,7 @@ method have been called.
 
 ### method `.mark-seen`
 
-```perl6
+```raku
     multi method mark-seen (UInt:D \id --> Nil)
     multi method mark-seen (Reminders::Rem:D $rem --> Nil)
 ```
@@ -200,7 +200,7 @@ method have been called.
 Takes a reminder object or just its `id` and marks it as "seen". Reminders
 emitted into the `.Supply` are marked as "seen" automatically when emitted.
 
-```perl6
+```raku
     $rem.mark-seen: $_ for $rem.all.grep: *.what.contains: 'stuff I done already';
 ```
 
@@ -209,7 +209,7 @@ if it was already scheduled.
 
 ### method `.mark-unseen`
 
-```perl6
+```raku
     multi method mark-unseen (UInt:D \id, :$re-schedule --> Nil)
     multi method mark-unseen (Reminders::Rem:D $rem, :$re-schedule --> Nil)
 ```
@@ -219,27 +219,27 @@ If `:$re-schedule` named argument is set to a truthy value, the reminder will
 also be re-scheduled; note that if reminder's `.when` is in the past, that will
 cause it to be immediately emitted and again marked as "seen".
 
-```perl6
+```raku
     $rem.mark-unseen: $_, :re-schedule
         for $rem.all.grep: *.what.contains: 'stuff I forgot to do';
 ```
 
 ### method `.rem`
 
-```perl6
+```raku
     method rem (UInt:D \id --> Reminders::Rem:D)
 ```
 
 Takes an id of a reminder and returns the reminder object for it, or `Nil`
 if a reminder with such an id was not found.
 
-```perl6
+```raku
     say "You're meant to do: " ~ $rem.rem(2).what;
 ```
 
 ### method `.remove`
 
-```perl6
+```raku
     multi method remove (UInt:D \id --> Nil)
     multi method remove (Reminders::Rem:D \rem --> Nil)
 ```
@@ -249,13 +249,13 @@ it from being emitted if it was already scheduled (note that the internal
 scheduling `Promise` will still exist until it fires, it just won't emit the
 reminder when it does).
 
-```perl6
+```raku
     $rem.remove: $_ for $rem.all.grep: *.what.contains: 'things I done';
 ```
 
 ### method `.snooze`
 
-```perl6
+```raku
 multi method snooze (UInt:D \id, |c --> Reminders::Rem:D)
 multi method snooze (UInt:D :$in!, |c --> Reminders::Rem:D)
 multi method snooze (
@@ -270,7 +270,7 @@ in `.add` method). Returns the updated reminder object. It's not permitted
 to `.snooze` after `Reminders` was `.done`
 
 
-```perl6
+```raku
     my Reminders $rem .= new;
     $rem.add: 'one', :who<Zoffix>, :where<space>, :1in;
     $rem.add: 'two', :who<Meows>,  :where<perl6>, :2in;
@@ -291,14 +291,14 @@ to `.snooze` after `Reminders` was `.done`
 
 ### method `.Supply`
 
-```perl6
+```raku
     method Supply (--> Supply:D)
 ```
 
-Returns a [`Supply`](https://docs.perl6.org/type/Supply) of emitted reminder
+Returns a [`Supply`](https://docs.raku.org/type/Supply) of emitted reminder
 objects that are emited at their `:$when`/`:$in` times. The `Supply` is
 managed by
-[`Supplier::Preserving`](https://docs.perl6.org/type/Supplier::Preserving)
+[`Supplier::Preserving`](https://docs.raku.org/type/Supplier::Preserving)
 
 ## monitor `Reminders::Rem`
 
@@ -345,12 +345,12 @@ Calls `.Str` and returns its value.
 
 # MULTI-THREADING
 
-`Reminders` type is a [monitor](https://modules.perl6.org/dist/OO::Monitors),
+`Reminders` type is a [monitor](https://modules.raku.org/dist/OO::Monitors),
 so it's safe to multi-thread its methods.
 
 However, currently, trying to use the **same database file** from multiple programs
 or multiple `Reminders` instances might have issues due to race conditions or
-crashes if SQLite or [`DBIish`](https://modules.perl6.org/dist/DBIish)
+crashes if SQLite or [`DBIish`](https://modules.raku.org/dist/DBIish)
 are not thread safe (no idea if they are).
 
 ---
@@ -358,12 +358,12 @@ are not thread safe (no idea if they are).
 #### REPOSITORY
 
 Fork this module on GitHub:
-https://github.com/zoffixznet/perl6-Reminders
+https://github.com/raku-community-modules/Reminders
 
 #### BUGS
 
 To report bugs or request features, please use
-https://github.com/zoffixznet/perl6-Reminders/issues
+https://github.com/raku-community-modules/Reminders/issues
 
 #### AUTHOR
 
