@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/zoffixznet/perl6-Reminders.svg)](https://travis-ci.org/zoffixznet/perl6-Reminders)
-
 # NAME
 
 `Reminders` - Class for managing reminders about tasks and events
@@ -24,6 +22,8 @@
     # Reminder: Zoffix@#perl6 15 seconds passed
     # Reminder: One more thing, bruh
 ```
+
+Another example:
 
 ```raku
     use Reminders;
