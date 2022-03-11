@@ -354,22 +354,23 @@ crashes if SQLite or [`DBIish`](https://modules.raku.org/dist/DBIish)
 are not thread safe (no idea if they are).
 
 ---
+## Meta info
 
-#### REPOSITORY
+### REPOSITORY
 
 Fork this module on GitHub:
 https://github.com/raku-community-modules/Reminders
 
-#### BUGS
+### BUGS
 
 To report bugs or request features, please use
 https://github.com/raku-community-modules/Reminders/issues
 
-#### AUTHOR
+### AUTHOR
 
 Zoffix Znet (http://perl6.party/)
 
-#### LICENSE
+### LICENSE
 
 You can use and distribute this module under the terms of the
 The Artistic License 2.0. See the `LICENSE` file included in this
